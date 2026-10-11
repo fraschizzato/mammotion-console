@@ -491,7 +491,7 @@ async def test_cloud_maps_survive_switch_and_restart(cloud, map_a, map_b):
     assert (reopened.directory(first["id"]) / "normalized.geojson").read_bytes() == before
 
 
-async def test_stale_complete_cloud_map_is_archived_without_contacting_mower(cloud, map_a):
+async def test_stale_complete_cloud_map_is_archived_without_contacting_mower(cloud, map_a, monkeypatch):
     from backend.maps import MapArchive
 
     _, adapter, handle, _ = cloud
@@ -511,7 +511,9 @@ async def test_stale_complete_cloud_map_is_archived_without_contacting_mower(clo
         generated_geojson=map_a["geojson"],
     )
     handle.snapshot.raw.report_data.locations = [SimpleNamespace(bol_hash=123)]
-    handle.last_report_data_at = time.monotonic() - 200
+    # Use a positive monotonic timestamp independent of runner uptime.
+    monkeypatch.setattr("backend.cloud.time.monotonic", lambda: 1000.0)
+    handle.last_report_data_at = 800.0
 
     payload = await adapter.complete_map()
     captured = MapArchive(adapter.store).capture(payload, handle.device_name, "Cached")

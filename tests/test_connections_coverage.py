@@ -201,6 +201,8 @@ def test_cold_mowing_overlay_fetch_is_bounded_and_never_plans(cloud):
     handle.has_queued_commands = lambda: False
     adapter.client.check_and_get_mow_path = AsyncMock()
     adapter._wait_for_overlay = AsyncMock(return_value=True)
+    # Allow the first fetch even when CI runner uptime is below 120 seconds.
+    adapter.overlay_attempt = time.monotonic() - 121
 
     async def check():
         adapter.request_overlay(handle)

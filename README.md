@@ -1,4 +1,4 @@
-# Mammotion Console
+﻿# Mammotion Console
 
 **Unofficial, self-hosted dashboard for Mammotion robotic mowers.**
 
@@ -23,7 +23,7 @@ It supports two connection paths:
 
 Python and Node.js are **not required on the host** when using Docker: both are included in the build.
 
-## Quick start — five steps
+## Quick start â€” five steps
 
 ### 1. Get the sources
 
@@ -32,7 +32,7 @@ git clone https://github.com/fraschizzato/mammotion-console.git
 cd mammotion-console
 ```
 
-This URL assumes the repository has been published at the address shown above.
+
 
 ### 2. Create your private configuration
 
@@ -54,7 +54,7 @@ notepad .env
 
 ### 3. Choose your provider
 
-**Option A — Home Assistant (recommended):** set at least:
+**Option A â€” Home Assistant (recommended):** set at least:
 
 ```dotenv
 CONNECTION_MODE=home_assistant
@@ -67,7 +67,7 @@ ALLOW_MANUAL_MOVEMENT=false
 
 Create a *Long-Lived Access Token* in your Home Assistant user profile. Use an address reachable **from Docker**; `localhost` refers to the container itself, not a separate Home Assistant installation. `MOWER_ENTITY` can usually remain empty if there is just one discoverable mower. MQTT direct-account telemetry is optional and requires Mammotion credentials; the example disables it for a HA-only installation.
 
-**Option B — Mammotion account (experimental):** set at least:
+**Option B â€” Mammotion account (experimental):** set at least:
 
 ```dotenv
 CONNECTION_MODE=mammotion
@@ -218,7 +218,7 @@ Do not run two writable instances against the same `./data` directory. Your hist
 - **Operations:** mower state, compatible commands, job history, network telemetry, optional camera and notifications.
 - **Deployment:** Docker Compose with a non-root, read-only container and persistent `./data` storage.
 
-For technical details: [Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Testing](docs/TESTING.md) · [Direct account](docs/DIRECT_ACCOUNT.md) · [Security](SECURITY.md).
+For technical details: [Architecture](docs/ARCHITECTURE.md) Â· [Deployment](docs/DEPLOYMENT.md) Â· [Testing](docs/TESTING.md) Â· [Direct account](docs/DIRECT_ACCOUNT.md) Â· [Security](SECURITY.md).
 
 ## Development and testing
 
@@ -253,4 +253,5 @@ Reproducible issues, fixes and pull requests are welcome. Include relevant softw
 
 ## License and trademarks
 
-GPL-3.0-only — see [LICENSE](LICENSE). Third-party dependencies retain their respective licenses. No official Mammotion imagery is redistributed. Mammotion and related product names are trademarks of their respective owners; this software is independently developed.
+GPL-3.0-only â€” see [LICENSE](LICENSE). Third-party dependencies retain their respective licenses. No official Mammotion imagery is redistributed. Mammotion and related product names are trademarks of their respective owners; this software is independently developed.
+

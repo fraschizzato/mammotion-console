@@ -1,0 +1,1 @@
+{"name":"South meadow","device":"Luba-fixture","expected_zone_ids":["201"],"frames_complete":true,"crs":"EPSG:4326","geojson":{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"type_name":"area","hash":"201","Name":"South meadow"},"geometry":{"type":"Polygon","coordinates":[[[9.182,45.46],[9.183,45.46],[9.183,45.4606],[9.182,45.4606],[9.182,45.46]]]}}]}}

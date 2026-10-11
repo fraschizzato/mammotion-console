@@ -1,0 +1,15 @@
+{
+  "name": "Orchard & home",
+  "device": "Luba-fixture",
+  "expected_zone_ids": ["101", "102"],
+  "frames_complete": true,
+  "crs": "EPSG:4326",
+  "geojson": {"type":"FeatureCollection","features":[
+    {"type":"Feature","properties":{"type_name":"area","hash":"101","Name":"Orchard"},"geometry":{"type":"Polygon","coordinates":[[[9.181,45.461],[9.1817,45.461],[9.1817,45.4616],[9.181,45.4616],[9.181,45.461]]]}},
+    {"type":"Feature","properties":{"type_name":"area","hash":"102","Name":"Home lawn"},"geometry":{"type":"Polygon","coordinates":[[[9.1819,45.461],[9.1824,45.461],[9.1824,45.4615],[9.1819,45.4615],[9.1819,45.461]]]}},
+    {"type":"Feature","properties":{"type_name":"obstacle","hash":"103","Name":"Old oak"},"geometry":{"type":"Polygon","coordinates":[[[9.1812,45.4612],[9.1813,45.4612],[9.1813,45.4613],[9.1812,45.4613],[9.1812,45.4612]]]}},
+    {"type":"Feature","properties":{"type_name":"path","hash":"104","Name":"Garden passage"},"geometry":{"type":"LineString","coordinates":[[9.1816,45.4611],[9.182,45.4611]]}},
+    {"type":"Feature","properties":{"type_name":"station","Name":"Dock"},"geometry":{"type":"Point","coordinates":[9.1822,45.4611]}},
+    {"type":"Feature","properties":{"type_name":"station","Name":"RTK Base"},"geometry":{"type":"Point","coordinates":[9.1823,45.4612]}}
+  ]}
+}

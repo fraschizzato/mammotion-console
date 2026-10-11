@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mammotion-console"
+version = "1.0.0"
+description = "Unofficial self-hosted dashboard for Mammotion robotic lawn mowers"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-only"
+dependencies = ["fastapi==0.141.1", "uvicorn==0.54.0", "pydantic==2.13.5", "pymammotion==0.10.6"]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

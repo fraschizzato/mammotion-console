@@ -1,0 +1,6 @@
+services:
+  console:
+    environment:
+      HA_CONFIG_PATH: /ha-config
+    volumes:
+      - ${HA_HOST_CONFIG_PATH:-/home/pi/.homeassistant}:/ha-config:ro

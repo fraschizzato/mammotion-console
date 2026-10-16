@@ -12,6 +12,7 @@ test("hibernating mower can be woken while offline in Italian", async ({
         provider: "mammotion",
         connected: true,
         online: false,
+        availability: "suspended",
         state: "hibernating",
         error: "",
         device: { entity_id: "mammotion.test", name: "LUBA test" },
@@ -31,7 +32,10 @@ test("hibernating mower can be woken while offline in Italian", async ({
     return route.fulfill({ json: { accepted: true, pending: true } });
   });
   await page.goto("/");
-  await expect(page.locator(".state-row")).toContainText("Ibernazione");
+  await expect(page.locator(".mower-card .pill")).toHaveText("Sospeso");
+  await expect(page.locator(".state-row")).toContainText(
+    "Sospeso — risveglio necessario",
+  );
   const wake = page.getByRole("button", { name: /Sveglia/ });
   await expect(wake).toBeEnabled();
   await wake.click();
@@ -41,6 +45,37 @@ test("hibernating mower can be woken while offline in Italian", async ({
     .getByRole("button", { name: "Conferma", exact: true })
     .click();
   await expect.poll(() => requested).toBe(true);
+});
+
+test("offline mower remains distinct from suspended and exposes safe wake", async ({
+  page,
+}) => {
+  await page.routeWebSocket("**/api/live", (socket) =>
+    socket.send(
+      JSON.stringify({
+        provider: "mammotion",
+        connected: true,
+        online: false,
+        availability: "offline",
+        state: "unavailable",
+        error: "",
+        device: { entity_id: "mammotion.test", name: "LUBA test" },
+        metrics: [],
+        capabilities: {
+          wake: {
+            supported: true,
+            reason:
+              "Try a Mammotion cloud wake for the offline mower; does not start mowing",
+          },
+        },
+      }),
+    ),
+  );
+  await page.goto("/");
+  await expect(page.locator(".mower-card .pill")).toHaveText("Offline");
+  await expect(page.locator(".state-row")).toContainText("Offline");
+  await expect(page.locator(".state-row")).not.toContainText("Suspended");
+  await expect(page.getByRole("button", { name: /wake/ })).toBeEnabled();
 });
 
 test("state, battery, zone mapping and Esri-only settings", async ({

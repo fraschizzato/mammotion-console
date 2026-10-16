@@ -121,10 +121,6 @@ class Preferences(BaseModel):
             raise ValueError("Zone areas must be more than 4 m2 apart to avoid ambiguous matches")
         return value
 
-    # Read-only calibration values shown to the frontend; never persisted from UI.
-    offset_lat: float = Field(default=0, ge=-100, le=100)
-    offset_lon: float = Field(default=0, ge=-100, le=100)
-
 
 def create_app(settings: Settings | None = None):
     settings = settings or Settings()
@@ -529,10 +525,7 @@ def create_app(settings: Settings | None = None):
                         if k in Preferences.model_fields
                     }
                 )
-            ).model_dump() | {
-                "offset_lat": settings.map_offset_lat,
-                "offset_lon": settings.map_offset_lon,
-            },
+            ).model_dump(),
             "server": {
                 "telegram_configured": bool(settings.telegram_bot_token.get_secret_value()),
                 "telegram_error": telegram.error or telegram.poll_error,
@@ -548,6 +541,13 @@ def create_app(settings: Settings | None = None):
                 "ha_configured": bool(settings.ha_token.get_secret_value()),
                 "cache_enabled": bool(settings.ha_config_path),
                 "allow_manual_movement": settings.allow_manual_movement,
+                "map_calibration": {
+                    "rotation_degrees": settings.map_display_rotation_degrees,
+                    "offset_east_m": settings.map_display_offset_east_m,
+                    "offset_north_m": settings.map_display_offset_north_m,
+                    "origin_latitude": settings.map_display_origin_latitude,
+                    "origin_longitude": settings.map_display_origin_longitude,
+                },
             },
             "mowers": ha.mowers(),
         }
@@ -626,11 +626,7 @@ def create_app(settings: Settings | None = None):
             raise ValueError("Mower is not discovered")
         if body.default_snapshot:
             archive.get(body.default_snapshot)
-        values = body.model_dump()
-        # Calibration belongs to the server .env, not to user preferences/database.
-        values.pop("offset_lat", None)
-        values.pop("offset_lon", None)
-        store.put("settings", values, "preferences")
+        store.put("settings", body.model_dump(), "preferences")
         ha.publish()
         return preferences()
 

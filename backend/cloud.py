@@ -146,6 +146,24 @@ class CloudClient(HaClient):
         selected = self.selected()
         return self.client.mower(selected["device_name"]) if selected else None
 
+    def device_availability(self, handle=None):
+        """Describe account reachability separately from fresh mower telemetry."""
+        handle = handle or self.handle()
+        if not self.connected:
+            return "disconnected"
+        if not handle:
+            return "offline"
+        raw_state = STATES.get(handle.snapshot.raw.report_data.dev.sys_status, "unknown")
+        if getattr(handle, "is_sleeping", None) is True or raw_state == "hibernating":
+            return "suspended"
+        if (
+            handle.has_usable_transport
+            and handle.last_report_data_at > 0
+            and time.monotonic() - handle.last_report_data_at < TELEMETRY_FRESH_SECONDS
+        ):
+            return "online"
+        return "offline"
+
     async def _network_report(self, device, message):
         system = getattr(message, "sys", None)
         report = getattr(system, "toapp_report_data", None)
@@ -484,6 +502,7 @@ class CloudClient(HaClient):
     def capabilities(self):
         handle = self.handle()
         available = bool(self.connected and handle and handle.has_usable_transport)
+        availability = self.device_availability(handle)
         schema = self.job_schema()
         self.services = {
             "mammotion": {
@@ -506,10 +525,14 @@ class CloudClient(HaClient):
             "supported": bool(
                 self.connected
                 and handle
-                and state == "hibernating"
+                and availability in {"suspended", "offline"}
                 and callable(getattr(self.client, "wake_device", None))
             ),
-            "reason": "Wake through Mammotion cloud; does not start mowing",
+            "reason": (
+                "Wake suspended mower through Mammotion cloud; does not start mowing"
+                if availability == "suspended"
+                else "Try a Mammotion cloud wake for the offline mower; does not start mowing"
+            ),
             "provider": "mammotion",
         }
         for action, allowed in {
@@ -677,19 +700,15 @@ class CloudClient(HaClient):
     def telemetry(self):
         handle = self.handle()
         metrics, position, state, online = [], None, "unavailable", False
+        availability = self.device_availability(handle)
         radio = self.radio_reports.get(handle.device_name, {}) if handle else {}
         if handle:
             raw = handle.snapshot.raw
-            online = (
-                self.connected
-                and handle.has_usable_transport
-                and handle.last_report_data_at > 0
-                and time.monotonic() - handle.last_report_data_at < TELEMETRY_FRESH_SECONDS
-            )
+            online = availability == "online"
             state = (
                 STATES.get(raw.report_data.dev.sys_status, "unknown") if online else "unavailable"
             )
-            if raw.report_data.dev.sys_status == 48:
+            if availability == "suspended":
                 state = "hibernating"
             if online:
                 for key, name, value, unit in (
@@ -831,6 +850,7 @@ class CloudClient(HaClient):
                 "provider_label": "Mammotion account",
                 "connected": self.connected,
                 "online": online,
+                "availability": availability,
                 "error": self.error,
                 "device": self.selected(),
                 "state": state,

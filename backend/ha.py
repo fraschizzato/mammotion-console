@@ -422,6 +422,16 @@ class HaClient:
         selected = self.selected()
         entities = self.entities()
         state = self.states.get(selected["entity_id"], {}) if selected else {}
+        mower_state = state.get("state", "unavailable")
+        availability = (
+            "disconnected"
+            if not self.connected
+            else "suspended"
+            if mower_state in {"hibernating", "sleeping", "suspended"}
+            else "offline"
+            if mower_state in {"unavailable", "unknown"}
+            else "online"
+        )
         metrics = []
         for item in entities:
             if item["entity_id"].startswith(("sensor.", "binary_sensor.", "number.")):
@@ -474,13 +484,12 @@ class HaClient:
                 "connected": self.connected,
                 "error": self.error,
                 "device": selected,
-                "state": state.get("state", "unavailable"),
-                "online": self.connected
-                and state.get("state", "unavailable") not in ("unavailable", "unknown"),
+                "state": mower_state,
+                "online": availability == "online",
+                "availability": availability,
                 "network": ha_network(
                     metrics,
-                    self.connected
-                    and state.get("state", "unavailable") not in ("unavailable", "unknown"),
+                    availability == "online",
                 ),
                 "position_observed_at": position_observed,
                 "position_online": position_online,

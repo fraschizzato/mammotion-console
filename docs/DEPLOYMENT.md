@@ -23,6 +23,16 @@ Use your actual interface address in `BIND_ADDRESS` if you want to bind only the
 
 The process runs as UID/GID **10001**, with a read-only root filesystem, dropped Linux capabilities, no privilege escalation, and a writable `/data` volume. `scripts/install.sh` sets ownership on `./data`. One Uvicorn worker owns the HA WebSocket and capture loop. Do not add workers: use a single instance against this data volume.
 
+## Shared display calibration
+
+Set `MAP_DISPLAY_ROTATION_DEGREES`, `MAP_DISPLAY_OFFSET_EAST_M` and
+`MAP_DISPLAY_OFFSET_NORTH_M` in `.env` when the base-map display needs adjustment.
+Optionally set both `MAP_DISPLAY_ORIGIN_LATITUDE` and
+`MAP_DISPLAY_ORIGIN_LONGITUDE`; leaving both blank uses the selected map centre.
+The same browser-only transform is applied to the base geometry, mower, routes,
+network samples and access points. Stored coordinates are unchanged. Recreate the
+container after a change.
+
 ## Optional read-only HA cache
 
 The preferred path uses current HA services. To preserve extra raw cache information and inspect cached schedule parameters, set in `.env`:
@@ -82,10 +92,11 @@ Schema version 1 is created transactionally on first startup. Future migrations 
 4. Check all zones and obstacles, dock/RTK, longitude/latitude alignment, and optional display offsets.
    While another cloud map is active, open a historical snapshot and confirm that
    its base remains visible while the mower marker and live route are explicitly hidden.
-   The Example Zone 09-centre button must also be disabled until the selected snapshot matches.
-5. Confirm a small safe job, pause/resume/dock, and schedule operations in the real integration. Check weekday interpretation on the mower (schema uses 0–6).
-6. Test camera streaming and reconnect on the LAN. Some ICE/codec/network failures can only be diagnosed here.
-7. For direct mode, test one low-speed nudge and its stop separately over Wi-Fi/cloud and optional Bluetooth, with the mower in sight. HA movement remains unavailable. Verify release, browser close and disconnect behavior before ordinary use.
+   The mower-centre button must also be disabled until the selected snapshot matches.
+5. Confirm that Online, Suspended, Offline and provider-disconnected remain distinct. Put the mower into low-power suspension and verify that a confirmed Wake request reconnects it without starting a job. Also verify the generic Offline fallback can attempt Wake while pause/resume/dock/stop remain disabled until fresh telemetry returns.
+6. Confirm a small safe job, pause/resume/dock, and schedule operations in the real integration. Check weekday interpretation on the mower (schema uses 0–6).
+7. Test camera streaming and reconnect on the LAN. Some ICE/codec/network failures can only be diagnosed here.
+8. For direct mode, test one low-speed nudge and its stop separately over Wi-Fi/cloud and optional Bluetooth, with the mower in sight. HA movement remains unavailable. Verify release, browser close and disconnect behavior before ordinary use.
 
 
 

@@ -1,11 +1,18 @@
 import type { NetworkData } from "./Network";
 import type { AccessPoint } from "./AccessPoints";
 import { t } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import type { FeatureCollection, GeoJsonObject, Position } from "geojson";
 import { Crosshair, Layers, Maximize2 } from "lucide-react";
 import { api, type Live, type Snapshot } from "./api";
+import {
+  inverseMapPosition,
+  resolveMapTransformOrigin,
+  transformMapFeatures,
+  transformMapPosition,
+  type MapCalibration,
+} from "./mapTransform";
 import "leaflet/dist/leaflet.css";
 
 export const signalColors: Record<string, string> = {
@@ -81,6 +88,29 @@ export function MapView({
     snapshotId ? undefined : true,
   );
   const positionOnline = live.position_online ?? live.online;
+  const mapCalibration = preferences.map_calibration as MapCalibration | undefined;
+  const mapOrigin = useMemo(
+    () =>
+      resolveMapTransformOrigin(
+        mapCalibration,
+        snapshot?.manifest.bounds,
+        live.position
+          ? { latitude: live.position.latitude, longitude: live.position.longitude }
+          : null,
+      ),
+    [mapCalibration, snapshot?.manifest.bounds, live.position],
+  );
+  const displayPosition = useCallback(
+    (position: { latitude: number; longitude: number }) => {
+      const transformed = transformMapPosition(
+        [position.longitude, position.latitude],
+        mapCalibration,
+        mapOrigin,
+      );
+      return { latitude: Number(transformed[1]), longitude: Number(transformed[0]) };
+    },
+    [mapCalibration, mapOrigin],
+  );
   const positionMatchesMap =
     networkMode || !snapshotId || snapshotMatches === true;
   const positionVisible = Boolean(
@@ -91,7 +121,7 @@ export function MapView({
   useEffect(() => {
     const m = map.current;
     if (!m || !network) return;
-    const layer = L.geoJSON(network, {
+    const layer = L.geoJSON(transformMapFeatures(network, mapCalibration, mapOrigin), {
       pointToLayer: (f, latlng) =>
         L.circle(latlng, {
           radius: 6,
@@ -122,7 +152,7 @@ export function MapView({
     return () => {
       layer.remove();
     };
-  }, [network, snapshotId]);
+  }, [network, snapshotId, mapCalibration, mapOrigin]);
   useEffect(() => {
     if (
       !snapshotId &&
@@ -130,22 +160,20 @@ export function MapView({
       live.position &&
       map.current
     ) {
-      map.current.setView(
-        [live.position.latitude, live.position.longitude],
-        19,
-        { animate: false },
-      );
+      const position = displayPosition(live.position);
+      map.current.setView([position.latitude, position.longitude], 19, { animate: false });
       centeredOnPosition.current = true;
     }
-  }, [snapshotId, live.position]);
+  }, [snapshotId, live.position, displayPosition]);
   useEffect(() => {
     if (compact && positionVisible && live.position)
-      map.current?.setView(
-        [live.position.latitude, live.position.longitude],
-        20,
-        { animate: false },
-      );
-  }, [compact, positionVisible, live.position]);
+      {
+        const position = displayPosition(live.position);
+        map.current?.setView([position.latitude, position.longitude], 20, {
+          animate: false,
+        });
+      }
+  }, [compact, positionVisible, live.position, displayPosition]);
   useEffect(() => {
     if (!element.current) return;
     map.current = L.map(element.current, {
@@ -189,13 +217,19 @@ export function MapView({
   useEffect(() => {
     const m = map.current;
     if (!m || !onMapPoint) return;
-    const click = (e: L.LeafletMouseEvent) =>
-      onMapPoint(e.latlng.lat, e.latlng.lng);
+    const click = (e: L.LeafletMouseEvent) => {
+      const source = inverseMapPosition(
+        [e.latlng.lng, e.latlng.lat],
+        mapCalibration,
+        mapOrigin,
+      );
+      onMapPoint(Number(source[1]), Number(source[0]));
+    };
     m.on("click", click);
     return () => {
       m.off("click", click);
     };
-  }, [onMapPoint]);
+  }, [onMapPoint, mapCalibration, mapOrigin]);
   useEffect(() => {
     const m = map.current;
     if (!m) return;
@@ -208,7 +242,8 @@ export function MapView({
     const layer = L.layerGroup(
       items.map((p, index) => {
         const draft = index === items.length - 1 && Boolean(draftAccessPoint);
-        const marker = L.circleMarker([p.latitude, p.longitude], {
+        const position = displayPosition(p);
+        const marker = L.circleMarker([position.latitude, position.longitude], {
           radius: draft ? 12 : 9,
           weight: 3,
           color: draft
@@ -229,7 +264,7 @@ export function MapView({
     return () => {
       layer.remove();
     };
-  }, [accessPoints, draftAccessPoint]);
+  }, [accessPoints, draftAccessPoint, displayPosition]);
   useEffect(() => {
     let active = true;
     setGeo(null);
@@ -264,20 +299,7 @@ export function MapView({
   useEffect(() => {
     const m = map.current;
     if (!m || !geo) return;
-    const copy = JSON.parse(JSON.stringify(geo)) as FeatureCollection;
-    const shift = (coords: any): any =>
-      typeof coords[0] === "number"
-        ? [
-            coords[0] +
-              (preferences.offset_lon || 0) /
-                (111320 * Math.cos((coords[1] * Math.PI) / 180)),
-            coords[1] + (preferences.offset_lat || 0) / 111320,
-          ]
-        : coords.map(shift);
-    copy.features.forEach((f) => {
-      if ("coordinates" in f.geometry)
-        f.geometry.coordinates = shift(f.geometry.coordinates);
-    });
+    const copy = transformMapFeatures(geo, mapCalibration, mapOrigin);
     const layer = L.geoJSON(copy, {
       filter: (f) =>
         f.properties?.kind === "zone" ||
@@ -307,7 +329,7 @@ export function MapView({
     return () => {
       layer.remove();
     };
-  }, [geo, hidden, preferences.offset_lat, preferences.offset_lon]);
+  }, [geo, hidden, mapCalibration, mapOrigin]);
   useEffect(() => {
     if (!compact && geo && map.current && base.current?.getBounds().isValid())
       map.current.fitBounds(base.current.getBounds(), {
@@ -328,16 +350,17 @@ export function MapView({
     )
       return;
     const p = live.position;
-    const marker = L.marker([p.latitude, p.longitude], {
+    const position = displayPosition(p);
+    const marker = L.marker([position.latitude, position.longitude], {
       zIndexOffset: 1000,
       icon: L.divIcon({
         className: "mower-marker",
-        html: `<span style="transform:rotate(${Number(p.direction ?? p.heading ?? p.rotation ?? 0)}deg)">▲</span>`,
+        html: `<span style="transform:rotate(${Number(p.direction ?? p.heading ?? p.rotation ?? 0) + Number(mapCalibration?.rotation_degrees || 0)}deg)">▲</span>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       }),
     }).addTo(m);
-    marker.bindTooltip(t("Example Zone 09"), {
+    marker.bindTooltip(t("Robot"), {
       permanent: true,
       direction: "right",
       offset: [18, 0],
@@ -346,7 +369,17 @@ export function MapView({
     return () => {
       marker.remove();
     };
-  }, [live.position, positionOnline, overlay, networkMode, snapshotId, snapshotMatches]);
+  }, [
+    live.position,
+    positionOnline,
+    overlay,
+    networkMode,
+    snapshotId,
+    snapshotMatches,
+    mapCalibration,
+    mapOrigin,
+    displayPosition,
+  ]);
   useEffect(() => {
     let cancelled = false;
     const m = map.current;
@@ -355,7 +388,7 @@ export function MapView({
       getMapGeometry(compare)
         .then((g) => {
           if (!cancelled)
-            layer = L.geoJSON(g, {
+            layer = L.geoJSON(transformMapFeatures(g, mapCalibration, mapOrigin), {
               style: {
                 color: "#f6b365",
                 fillOpacity: 0.05,
@@ -369,7 +402,7 @@ export function MapView({
       cancelled = true;
       layer?.remove();
     };
-  }, [compare]);
+  }, [compare, mapCalibration, mapOrigin]);
   useEffect(() => {
     setSnapshotMatches(snapshotId ? undefined : true);
     if (!historyId && !(live.connected || live.mqtt?.connected)) return;
@@ -440,7 +473,7 @@ export function MapView({
             .map((kind) => [kind, data[kind]] as const)
             .filter(([, g]) => g?.type)
             .map(([kind, g]) =>
-              L.geoJSON(g, {
+              L.geoJSON(transformMapFeatures(g as FeatureCollection, mapCalibration, mapOrigin), {
                 style:
                   kind === "mowed"
                     ? {
@@ -492,6 +525,8 @@ export function MapView({
     live.device?.entity_id,
     snapshotId,
     historyId,
+    mapCalibration,
+    mapOrigin,
   ]);
   const fit = () => {
     if (base.current?.getBounds().isValid())
@@ -552,7 +587,7 @@ export function MapView({
                   : undefined
           }
           onClick={() => {
-            const p = live.position!;
+            const p = displayPosition(live.position!);
             map.current?.setView([p.latitude, p.longitude], 20, {
               animate: false,
             });

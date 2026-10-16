@@ -146,7 +146,20 @@ archive creation. Existing immutable snapshots are not rewritten.
 
 A synthetic, geographically neutral fixture is used for public validation of complete-map
 geometry, dock and RTK placement. No private site bounding boxes or device locations are
-included in this repository. Map display offsets (`MAP_OFFSET_LAT`, `MAP_OFFSET_LON`, in
-metres) are deployment-specific presentation preferences, not a replacement for the
+included in this repository. Shared display calibration uses
+`MAP_DISPLAY_ROTATION_DEGREES`, metric east/north offsets and an optional paired
+origin. It is a deployment-specific browser transform, not a replacement for the
 RTK conversion fix above. Deployment and a new capture are required to create the corrected immutable
 snapshot on the target host.
+
+## Wake and availability audit (2026-10-11)
+
+Current PyMammotion 0.10.8 was inspected without changing the project's tested
+0.10.6 pin. Both versions implement `wake_device` as a Mammotion cloud HTTP wake
+request and identify sleeping state from work mode/system status 48. Mammotion-HA
+does not currently expose a lawn-mower wake feature. The adapter therefore keeps
+account connectivity, fresh device telemetry and low-power suspension separate.
+An exact sleeping report is labelled `suspended`; missing/stale device transport is
+labelled `offline`. Either can expose an explicit confirmed cloud wake attempt when
+the account and selected device handle are available, while all motion/job controls
+still require fresh state. A 30-second rate limit prevents repeated wake requests.

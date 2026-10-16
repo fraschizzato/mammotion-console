@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from backend.config import Settings, sanitize
@@ -45,3 +46,34 @@ def test_account_mode_never_silently_connects_to_ha(tmp_path):
 
     app = create_app(settings)
     assert isinstance(app.state.ha, CloudClient)
+
+
+def test_shared_map_calibration_is_env_configured_and_exposed(tmp_path, monkeypatch):
+    monkeypatch.setenv("MAP_DISPLAY_ROTATION_DEGREES", "-18.5")
+    monkeypatch.setenv("MAP_DISPLAY_OFFSET_EAST_M", "4.2")
+    monkeypatch.setenv("MAP_DISPLAY_OFFSET_NORTH_M", "-1.5")
+    monkeypatch.setenv("MAP_DISPLAY_ORIGIN_LATITUDE", "45.12345")
+    monkeypatch.setenv("MAP_DISPLAY_ORIGIN_LONGITUDE", "10.54321")
+    settings = Settings(data_dir=tmp_path, _env_file=None)
+    with TestClient(create_app(settings)) as client:
+        calibration = client.get("/api/settings").json()["server"]["map_calibration"]
+    assert calibration == {
+        "rotation_degrees": -18.5,
+        "offset_east_m": 4.2,
+        "offset_north_m": -1.5,
+        "origin_latitude": 45.12345,
+        "origin_longitude": 10.54321,
+    }
+
+
+def test_map_display_origin_requires_both_coordinates():
+    with pytest.raises(ValidationError, match="MAP_DISPLAY_ORIGIN"):
+        Settings(map_display_origin_latitude=45.12345, _env_file=None)
+
+
+def test_blank_map_display_origin_env_uses_selected_map_centre(tmp_path):
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("MAP_DISPLAY_ORIGIN_LATITUDE=\nMAP_DISPLAY_ORIGIN_LONGITUDE=\n")
+    settings = Settings(_env_file=dotenv)
+    assert settings.map_display_origin_latitude is None
+    assert settings.map_display_origin_longitude is None

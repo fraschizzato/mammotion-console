@@ -17,7 +17,7 @@ export type NetworkData = FeatureCollection<Point> & {
 export function NetworkSignal({ live }: { live: Live }) {
   const network = live.network;
   return (
-    <section className="network-signal" aria-label={t("Example Zone 09 network signal")}>
+    <section className="network-signal" aria-label={t("Robot network signal")}>
       <span>
         {t("Reported connection")}:{" "}
         <strong>{t(network?.connection || "Unknown")}</strong>

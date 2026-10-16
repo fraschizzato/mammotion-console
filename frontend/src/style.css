@@ -521,6 +521,10 @@ main {
   background: #30402a;
   color: #bde795;
 }
+.pill.amber {
+  background: #4a3b20;
+  color: #ffd58a;
+}
 .mower-art {
   height: 142px;
   display: grid;

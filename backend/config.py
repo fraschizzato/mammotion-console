@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,13 +23,22 @@ class Settings(BaseSettings):
     allow_manual_movement: bool = False
     auto_capture: bool = True
     capture_interval: int = 300
-    map_offset_lat: float = 0.0  # Map display north/south translation in metres.
-    map_offset_lon: float = 0.0  # Map display east/west translation in metres.
     frontend_dir: Path = Path("frontend/dist")
     app_origin: str = ""
     telegram_camera_capture: bool = True
     telegram_bot_token: SecretStr = SecretStr("")
     camera_snapshot_url: SecretStr = SecretStr("")
+    # Display calibration is deliberately server configuration: all browser
+    # sessions render the same immutable map, live position and overlays.
+    map_display_rotation_degrees: float = Field(default=0, ge=-360, le=360, allow_inf_nan=False)
+    map_display_offset_east_m: float = Field(default=0, ge=-1000, le=1000, allow_inf_nan=False)
+    map_display_offset_north_m: float = Field(default=0, ge=-1000, le=1000, allow_inf_nan=False)
+    map_display_origin_latitude: float | None = Field(
+        default=None, ge=-85, le=85, allow_inf_nan=False
+    )
+    map_display_origin_longitude: float | None = Field(
+        default=None, ge=-180, le=180, allow_inf_nan=False
+    )
 
     @field_validator("camera_snapshot_url")
     @classmethod
@@ -40,6 +49,21 @@ class Settings(BaseSettings):
             if parsed.scheme not in {"http", "https"} or not parsed.hostname:
                 raise ValueError("CAMERA_SNAPSHOT_URL must be an HTTP(S) URL")
         return value
+
+    @field_validator("map_display_origin_latitude", "map_display_origin_longitude", mode="before")
+    @classmethod
+    def blank_map_display_origin_is_unset(cls, value):
+        return None if value == "" else value
+
+    @model_validator(mode="after")
+    def paired_map_display_origin(self):
+        if (self.map_display_origin_latitude is None) != (
+            self.map_display_origin_longitude is None
+        ):
+            raise ValueError(
+                "MAP_DISPLAY_ORIGIN_LATITUDE and MAP_DISPLAY_ORIGIN_LONGITUDE must be set together"
+            )
+        return self
 
     @property
     def redaction_secrets(self) -> tuple[str, ...]:

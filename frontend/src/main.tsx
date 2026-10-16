@@ -1,5 +1,5 @@
 import { t, useLanguage, setLanguage } from "./i18n";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -184,6 +184,13 @@ function App() {
     }
   }, [toast]);
   const snapshot = maps.find((m) => m.id === selected);
+  const mapPreferences = useMemo(
+    () => ({
+      ...settings.preferences,
+      map_calibration: settings.server.map_calibration,
+    }),
+    [settings.preferences, settings.server.map_calibration],
+  );
   const perform = async (action: () => Promise<unknown>, message = "Saved") => {
     setBusy(true);
     try {
@@ -224,6 +231,16 @@ function App() {
       () => api(`/mower/${action}`, "POST", { confirmed: true }),
     );
   const metric = (key: string) => live.metrics.find((m) => m.key.endsWith(key));
+  const availability =
+    live.availability ??
+    (live.state === "hibernating"
+      ? "suspended"
+      : live.online
+        ? "online"
+        : live.connected
+          ? "offline"
+          : "disconnected");
+  const wakeAvailable = Boolean(live.capabilities.wake?.supported);
   return (
     <div className="app">
       <aside className="sidebar">
@@ -362,7 +379,7 @@ function App() {
                   <MapView
                     snapshot={snapshot}
                     live={live}
-                    preferences={settings.preferences}
+                    preferences={mapPreferences}
                   />
                   <div className="property-footer">
                     <div>
@@ -379,12 +396,22 @@ function App() {
                 <section className="panel mower-card">
                   <div className="section-title">
                     <span className="eyebrow">{t("YOUR MOWER")}</span>
-                    <span className={`pill ${live.online ? "green" : ""}`}>
-                      {live.state === "hibernating"
-                        ? t("Hibernating")
-                        : live.online
+                    <span
+                      className={`pill ${
+                        availability === "online"
+                          ? "green"
+                          : availability === "suspended"
+                            ? "amber"
+                            : ""
+                      }`}
+                    >
+                      {availability === "suspended"
+                        ? t("Suspended")
+                        : availability === "online"
                           ? t("Online")
-                          : t("Offline")}
+                          : availability === "disconnected"
+                            ? t("Provider disconnected")
+                            : t("Offline")}
                     </span>
                   </div>
                   <h2>{live.device?.name || t("Connect your mower")}</h2>
@@ -412,10 +439,13 @@ function App() {
                   <div className="state-row">
                     <Radio size={17} />
                     <strong>
-                      {live.online || live.state === "hibernating"
-                        ? t(live.state).replaceAll("_", " ")
-                        : "Offline - last known: " +
-                          t(live.state).replaceAll("_", " ")}
+                      {availability === "suspended"
+                        ? t("Suspended — wake required")
+                        : availability === "online"
+                          ? t(live.state).replaceAll("_", " ")
+                          : availability === "disconnected"
+                            ? t("Provider disconnected")
+                            : t("Offline")}
                     </strong>
                     <span aria-label={t("Battery level")}>
                       <Battery size={20} /> {t("Battery")}{" "}
@@ -458,7 +488,7 @@ function App() {
                     </div>
                   </div>
                   <div className="control-grid">
-                    {(live.state === "hibernating"
+                    {(availability === "suspended" || (!live.online && wakeAvailable)
                       ? ["wake"]
                       : ["pause", "resume", "dock", "stop"]
                     ).map((action) => (
@@ -485,7 +515,9 @@ function App() {
                             ? "▷"
                             : action === "dock"
                               ? "⌂"
-                              : "□"}{" "}
+                              : action === "wake"
+                                ? "↟"
+                                : "□"}{" "}
                         {t(action)}
                       </button>
                     ))}
@@ -567,7 +599,7 @@ function App() {
               selected={selected}
               setSelected={setSelected}
               live={live}
-              preferences={settings.preferences}
+              preferences={mapPreferences}
               perform={perform}
               ask={ask}
               busy={busy}
@@ -577,7 +609,7 @@ function App() {
             <JobsPage
               maps={maps}
               live={live}
-              preferences={settings.preferences}
+              preferences={mapPreferences}
               ask={ask}
               perform={perform}
               connected={live.online}
@@ -597,14 +629,14 @@ function App() {
               key={live.device?.entity_id || "unselected"}
               live={live}
               snapshot={maps.find((m) => m.id === selected)}
-              preferences={settings.preferences}
+              preferences={mapPreferences}
             />
           )}
           {page === "Network" && (
             <NetworkHistory
               live={live}
               maps={maps}
-              preferences={settings.preferences}
+              preferences={mapPreferences}
             />
           )}
           {page === "Diagnostics" && <Diagnostics events={events} />}
@@ -2024,6 +2056,7 @@ function SettingsPage({
   perform: Shared["perform"];
 }) {
   const [form, setForm] = useState(settings.preferences);
+  const calibration = settings.server.map_calibration || {};
   return (
     <div className="two-columns">
       <section className="panel">
@@ -2212,15 +2245,26 @@ function SettingsPage({
           />
           {t("Automatically capture complete map changes")}
         </label>
-        <p className="muted">
-          Map display offsets are managed by the server administrator with
-          MAP_OFFSET_LAT and MAP_OFFSET_LON in .env (metres; restart required).
-        </p>
+        <h3>{t("Map calibration")}</h3>
         <p className="muted">
           {t(
-            "Display calibration does not alter archived coordinates. Map retention is unlimited; deletion is always manual.",
+            "Display calibration is configured in .env and is applied consistently to maps, live position, routes, Wi-Fi samples and access points. It does not alter archived coordinates.",
           )}
         </p>
+        <dl className="compact-details">
+          <dt>{t("Rotation")}</dt>
+          <dd>{Number(calibration.rotation_degrees || 0)}°</dd>
+          <dt>{t("Offset")}</dt>
+          <dd>
+            E {Number(calibration.offset_east_m || 0)} m · N {Number(calibration.offset_north_m || 0)} m
+          </dd>
+          <dt>{t("Rotation origin")}</dt>
+          <dd>
+            {calibration.origin_latitude == null
+              ? t("Selected map centre")
+              : `${calibration.origin_latitude}, ${calibration.origin_longitude}`}
+          </dd>
+        </dl>
         <button
           className="primary"
           onClick={() => void perform(() => api("/settings", "PUT", form))}

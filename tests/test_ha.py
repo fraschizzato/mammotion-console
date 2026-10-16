@@ -127,3 +127,17 @@ def test_ha_position_requires_a_recent_tracker_report(tmp_path):
     stale = ha.telemetry()
     assert not stale["position_online"]
     assert stale["position"] == tracker["attributes"]
+
+
+def test_ha_availability_distinguishes_online_suspended_offline_and_disconnected(tmp_path):
+    ha = HaClient(Settings(data_dir=tmp_path, _env_file=None), Store(tmp_path))
+    seed_ha(ha)
+    assert ha.telemetry()["availability"] == "online"
+    ha.states["lawn_mower.luba"]["state"] = "hibernating"
+    suspended = ha.telemetry()
+    assert suspended["availability"] == "suspended"
+    assert not suspended["online"]
+    ha.states["lawn_mower.luba"]["state"] = "unavailable"
+    assert ha.telemetry()["availability"] == "offline"
+    ha.connected = False
+    assert ha.telemetry()["availability"] == "disconnected"

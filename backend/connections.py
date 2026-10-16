@@ -145,10 +145,18 @@ class Connections:
         }:
             result["state"] = "hibernating"
             result["online"] = False
+            result["availability"] = "suspended"
             result["capabilities"] = {k: dict(v) for k, v in live.get("capabilities", {}).items()}
             for action in ("pause", "resume", "dock", "stop"):
                 if action in result["capabilities"]:
                     result["capabilities"][action]["supported"] = False
+            result["capabilities"]["wake"] = cloud["capabilities"]["wake"]
+        elif (
+            result.get("availability") in {"offline", "disconnected"}
+            and cloud.get("availability") == "offline"
+            and cloud.get("capabilities", {}).get("wake", {}).get("supported")
+        ):
+            result["capabilities"] = {k: dict(v) for k, v in live.get("capabilities", {}).items()}
             result["capabilities"]["wake"] = cloud["capabilities"]["wake"]
         result["mqtt"] = cloud.get("mqtt", {"connected": False})
         if (

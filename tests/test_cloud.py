@@ -68,6 +68,7 @@ def test_cloud_telemetry_and_scoped_credentials(cloud):
     state = browser.get("/api/state").json()
     assert state["provider"] == "mammotion"
     assert state["online"]
+    assert state["availability"] == "online"
     assert state["metrics"][0]["value"] == "87"
     metrics = {item["key"]: item["value"] for item in state["metrics"]}
     assert (
@@ -852,9 +853,11 @@ def test_wake_sleeping_mower_without_mqtt_or_freshness_probe(cloud):
     handle.has_usable_transport = False
     handle.last_report_data_at = 0
     adapter.client.wake_device = AsyncMock(return_value=True)
+    adapter.last_wake = time.monotonic() - 31
     state = browser.get("/api/state").json()
     assert state["state"] == "hibernating"
     assert not state["online"]
+    assert state["availability"] == "suspended"
     assert state["capabilities"]["wake"]["supported"]
     assert not state["capabilities"]["resume"]["supported"]
     assert browser.post("/api/mower/wake", json={"confirmed": False}).status_code == 422
@@ -865,6 +868,24 @@ def test_wake_sleeping_mower_without_mqtt_or_freshness_probe(cloud):
     adapter.client.ensure_fresh_state.assert_not_awaited()
     adapter.client.send_command_with_args.assert_not_awaited()
     assert browser.post("/api/mower/wake", json={"confirmed": True}).status_code == 503
+
+
+def test_offline_cloud_mower_stays_offline_but_can_try_wake(cloud):
+    browser, adapter, handle, _ = cloud
+    handle.snapshot.raw.report_data.dev.sys_status = 15
+    handle.has_usable_transport = False
+    handle.last_report_data_at = 0
+    adapter.client.wake_device = AsyncMock(return_value=True)
+    adapter.last_wake = time.monotonic() - 31
+    state = browser.get("/api/state").json()
+    assert state["state"] == "unavailable"
+    assert state["availability"] == "offline"
+    assert not state["online"]
+    assert state["capabilities"]["wake"]["supported"]
+    result = browser.post("/api/mower/wake", json={"confirmed": True})
+    assert result.status_code == 200, result.text
+    assert result.json()["pending"]
+    adapter.client.wake_device.assert_awaited_once_with(handle.device_name)
 
 
 def test_wake_rejects_awake_mower_and_cloud_refusal(cloud):

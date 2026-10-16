@@ -48,6 +48,7 @@ automatic acceptance instead of modifying account sharing.
 | Permanent map library, versions, import/export | Available offline | Available offline; same archive |
 | Pause / resume | Discovered HA services | Current-state-checked commands; resume only for paused work |
 | Dock / cancel job | Discovered HA services | Idle/paused docking; pause first before cancellation |
+| Availability / wake | HA live state, enriched by a matching configured account | Online, suspended, offline and account-disconnected are distinct; suspended or offline mowers can receive an explicit confirmed cloud wake attempt |
 | Job composer and presets | Fields exposed by installed HA service | Zones, speed, height, lane spacing, angle, angle mode, route mode, perimeter/obstacle laps |
 | Job history / reuse | Console-launched jobs; explicit submitted settings | Console-launched jobs plus current tasks reported while connected |
 | Schedules: list/create/edit/rename/copy/enable/delete/run/refresh | When exposed by HA | Not exposed by this adapter; use the Mammotion app or HA mode |
@@ -56,6 +57,13 @@ automatic acceptance instead of modifying account sharing.
 | Manual Bluetooth movement | Not routed through HA | Opt-in, selected server-side Bluetooth adapter/device |
 
 Other direct-mode limitations:
+
+* `connected` describes the provider account/session, while `online` requires fresh
+  mower telemetry. The dashboard labels a reported low-power state as **Suspended**
+  and an unresponsive device as **Offline**. Both may offer **Wake** when a matching
+  Mammotion account and device handle are available; wake is rate-limited, requires
+  confirmation and never starts mowing. Other controls remain disabled without
+  fresh telemetry.
 
 * The overview exposes cloud battery, charge state, speed, cutting height,
   progress, total/elapsed/remaining mowing minutes, Wi-Fi/mobile RSSI, RTK

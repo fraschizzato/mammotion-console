@@ -124,14 +124,17 @@ Health endpoints: `/api/health` and `/api/ready`. Readiness may reflect missing 
 
 ## Visual map alignment
 
-Map alignment offsets are configured **server-side**, not in the dashboard preferences. Add to `.env`:
+Map calibration is configured **server-side**, not in the dashboard preferences. Add to `.env`:
 
 ```dotenv
-MAP_OFFSET_LAT=0
-MAP_OFFSET_LON=0
+MAP_DISPLAY_ROTATION_DEGREES=0
+MAP_DISPLAY_OFFSET_EAST_M=0
+MAP_DISPLAY_OFFSET_NORTH_M=0
+MAP_DISPLAY_ORIGIN_LATITUDE=
+MAP_DISPLAY_ORIGIN_LONGITUDE=
 ```
 
-Values are signed **metres**: positive latitude offset moves the displayed map north; positive longitude offset moves it east. Negative values move it south/west. They adjust only the **display of archived map geometry** relative to the base map; they do **not** rewrite historical snapshots, RTK coordinates or mower telemetry. Keep both at `0` unless the displayed geometry needs manual alignment. Restart the service with `docker compose up -d` after editing `.env`. These offsets do not correct SDK conversion errors or actual GPS measurements.
+Rotation is in degrees; offsets are signed **metres** east/north. Leave both origin values blank to rotate around the selected map centre, or set both to a stable latitude/longitude pivot. One transform is applied consistently to archived geometry, the live mower and route, network samples and access points. It never rewrites stored snapshots or telemetry. Keep calibration at zero unless display alignment is required, then recreate the container after editing `.env`. Calibration does not correct SDK conversion errors or actual GPS measurements.
 
 ## `.env` reference
 
@@ -163,6 +166,9 @@ All settings below are defined in the supplied `.env.example`. Empty values typi
 | `BIND_ADDRESS` | `0.0.0.0` | Host interface on which Docker publishes the port; `127.0.0.1` restricts access to the host. |
 | `APP_ORIGIN` | empty | Explicit browser origin used with a reverse proxy when request `Origin` differs from backend host. Use the exact expected origin, not a wildcard. |
 | `DATA_DIR` | `data` | Native-development storage location. Docker Compose overrides it internally to `/data`, bound to host `./data`. |
+| `MAP_DISPLAY_ROTATION_DEGREES` | `0` | Shared browser-only clockwise map rotation in local metric space. |
+| `MAP_DISPLAY_OFFSET_EAST_M` / `MAP_DISPLAY_OFFSET_NORTH_M` | `0` | Shared browser-only map translation in signed metres. |
+| `MAP_DISPLAY_ORIGIN_LATITUDE` / `MAP_DISPLAY_ORIGIN_LONGITUDE` | empty | Optional paired rotation pivot; blank uses the selected map centre. |
 
 ### Notifications, camera and optional HA cache
 
@@ -215,7 +221,7 @@ Do not run two writable instances against the same `./data` directory. Your hist
 - **Backend:** FastAPI, Python 3.13, SQLite.
 - **Integrations:** Home Assistant; experimental Mammotion cloud/MQTT and optional Bluetooth via PyMammotion.
 - **Maps:** historical archives, immutable snapshot versions, zones and overlays.
-- **Operations:** mower state, compatible commands, job history, network telemetry, optional camera and notifications.
+- **Operations:** distinct online/suspended/offline/provider-disconnected state, safe cloud wake, compatible commands, job history, network telemetry, optional camera and notifications.
 - **Deployment:** Docker Compose with a non-root, read-only container and persistent `./data` storage.
 
 For technical details: [Architecture](docs/ARCHITECTURE.md) Â· [Deployment](docs/DEPLOYMENT.md) Â· [Testing](docs/TESTING.md) Â· [Direct account](docs/DIRECT_ACCOUNT.md) Â· [Security](SECURITY.md).

@@ -9,10 +9,26 @@ description = "Unofficial self-hosted dashboard for Mammotion robotic lawn mower
 readme = "README.md"
 requires-python = ">=3.13"
 license = "GPL-3.0-only"
-dependencies = ["fastapi==0.141.1", "uvicorn==0.54.0", "pydantic==2.13.5", "pymammotion==0.10.6"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "httpx>=0.28,<1", "websockets>=15,<17", "pydantic-settings>=2.8,<3", "shapely>=2.0,<3", "python-multipart>=0.0.20", "pymammotion==0.10.6", "packaging>=24,<27", "pillow>=12,<13", "playwright>=1.50,<2", "agora-python-server-sdk==2.4.9; sys_platform == 'linux'"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11", "mypy>=1.15", "types-shapely>=2"]
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

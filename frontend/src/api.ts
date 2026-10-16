@@ -108,6 +108,7 @@ export type Live = {
   provider_label?: string;
   connected: boolean;
   online: boolean;
+  availability?: "online" | "suspended" | "offline" | "disconnected";
   error: string;
   state: string;
   device: { name: string; model: string; entity_id: string } | null;
@@ -130,6 +131,7 @@ export type Live = {
 export const emptyLive: Live = {
   connected: false,
   online: false,
+  availability: "disconnected",
   error: "Connecting to console…",
   state: "unavailable",
   device: null,

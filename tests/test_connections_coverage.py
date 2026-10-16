@@ -386,8 +386,14 @@ def test_sleeping_cloud_mower_adds_wake_to_matching_ha_without_online_telemetry(
     enriched = bridge.enrich(primary.telemetry())
     assert enriched["state"] == "hibernating"
     assert not enriched["online"]
+    assert enriched["availability"] == "suspended"
     assert enriched["capabilities"]["wake"]["supported"]
     assert enriched["provider"] == "home_assistant"
+    handle.snapshot.raw.report_data.dev.sys_status = 15
+    offline = bridge.enrich(primary.telemetry())
+    assert offline["state"] == "unavailable"
+    assert offline["availability"] == "offline"
+    assert offline["capabilities"]["wake"]["supported"]
     primary.devices[0]["name"] = "Other mower"
     assert not bridge.enrich(primary.telemetry())["capabilities"]["wake"]["supported"]
     asyncio.run(primary.close())
